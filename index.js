@@ -1,4 +1,4 @@
-module.exports = class Decoder {
+module.exports = class Decoders {
     static get WAV() {
         return require('./src/wav');
     }
@@ -17,20 +17,15 @@ module.exports = class Decoder {
             type = type.substring(1);
 
         switch (type) {
-            case 'mp3': return new Decoder.MP3;
-            case 'aac': return new Decoder.AAC;
-            case 'wav': return new Decoder.WAV;
+            case 'mp3': return new Decoders.MP3;
+            case 'aac': return new Decoders.AAC;
+            case 'wav': return new Decoders.WAV;
         }
 
         return null;
     }
 
-    static buf(data) {
-        return new Buffer(data);
-    }
-
-    static feeder(options) {
-        const feeder = require('audio-feeder');
-        return new feeder(options);
+    static Buffer(...args) {
+        return new Buffer(...args);
     }
 };

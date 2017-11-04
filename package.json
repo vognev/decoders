@@ -5,8 +5,8 @@
   "main": "index.js",
   "browser": "dist/browser.js",
   "scripts": {
-    "browser": "BABEL_ENV=browser webpack --optimize-minimize --config .webpack.config.js --target web  index.js      dist/browser.js",
-    "decoder": "BABEL_ENV=console webpack --optimize-minimize --config .webpack.config.js --target node bin/decode.js dist/decoder.js"
+    "browser": "BABEL_ENV=browser webpack --optimize-minimize --config .webpack.config.js --target web  index.js       dist/browser.js",
+    "decoder": "BABEL_ENV=console webpack --optimize-minimize --config .webpack.config.js --target node bin/decoder.js dist/decoder.js"
   },
   "bin": {
     "decode": "./bin/decode.js"

@@ -1,0 +1,297 @@
+
+<!doctype html>
+<html>
+<head>
+    <title></title>
+    <script src="./browser.js"></script>
+    <script src="./AudioFeeder.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <style>
+        #controls {
+            color: black;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            padding: 20px;
+            margin: auto;
+            width: 300px;
+            margin-left: -150px;
+            height: 180px;
+            margin-top: -90px;
+            z-index: 100;
+            background-color: rgba(255,255,255,0.2);
+            font-family: sans-serif;
+            font-size: 18px;
+            text-shadow: 1px 1px rgba(255,255,255,0.3);
+            box-sizing: border-box;
+        }
+
+        label {
+            cursor: pointer;
+            display: block;
+            margin-bottom: 20px;
+        }
+
+        #controls hr {
+            margin: 20px 0;
+        }
+
+        #controls input[type=text] {
+            display: block;
+            width: 100%;
+        }
+
+        #file {
+            visibility: hidden; position: absolute;
+        }
+
+        body {
+            background: black;
+            color: #999;
+            text-align: center;
+            width: 100%; height: 100%;
+            overflow: hidden;
+        }
+
+        h1 {
+            color: white;
+        }
+
+        #viz {
+            box-sizing: border-box;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            top: 0; left: 0;
+        }
+
+        a {
+            color: #3399ff;
+        }
+
+        .viz-seg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 255, 0.1);
+            border-radius: 50% 0;
+            will-change: transform;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="controls">
+    <label for="file">Select Local File</label>
+    <input type="file" id="file" onchange="file(event)">
+
+    <form onsubmit="return stream()">
+        <label for="url">Try online stream</label>
+        <input type="text" placeholder="url" id="url" value="http://server227.radiostreamserver.de:80/wunschradio.mp3">
+        <br>
+        <button>Stream</button>
+    </form>
+</div>
+
+<div id="viz">
+
+</div>
+
+<script>
+    const feeder = new AudioFeeder({});
+
+    function connectDecoder(decoder) {
+        decoder.on('header', function (header) {
+            const freq = header.sampleRate;
+            const chnl = header.channels;
+
+            feeder.init(chnl, freq);
+            feeder.start();
+            init(feeder);
+
+            console.time('decoding');
+
+            decoder.on('data', function (data) {
+                const them = [];
+                const sz = 2;
+                const each_len = data.length / chnl / sz; // assuming 16-bit samples
+
+                for (let i = 0; i < chnl; i++) {
+                    them[i] = new Float32Array(each_len);
+                    for (let k = 0; k < each_len; k++) {
+                        them[i][k] = data.readInt16LE(
+                            k * chnl * sz + i * sz
+                        ) / 0xFFFF;
+                    }
+                }
+
+                feeder.bufferData(them);
+            });
+
+            decoder.on('finish', function() {
+                console.timeEnd('decoding');
+            })
+        });
+    }
+
+    function file(e) {
+        const file = e.target.files[0];
+        const decoder = Decoders.factory(file.name.split('.')[1]);
+        connectDecoder(decoder);
+
+        chunked(file, 65536, function (chunk, done, cb) {
+            const buf = Decoders.Buffer(chunk);
+            decoder.write(buf, null, cb);
+            if (done)
+                decoder.end();
+        })
+    }
+
+    function chunked(file, chunkSize, callback) {
+        let fileSize = file.size;
+        let offset = 0;
+        let chunkReaderBlock = null;
+
+        let readEventHandler = function (evt) {
+            if (evt.target.error == null) {
+                offset += evt.target.result.byteLength;
+                callback(evt.target.result, offset >= fileSize, function () {
+                    (offset < fileSize) && // guard against extra call
+                    chunkReaderBlock(offset, chunkSize, file);
+                });
+            } else {
+                console.log("Read error: " + evt.target.error);
+            }
+        };
+
+        chunkReaderBlock = function (_offset, length, _file) {
+            let r = new FileReader();
+            let blob = _file.slice(_offset, length + _offset);
+            r.onload = readEventHandler;
+            r.readAsArrayBuffer(blob);
+        };
+
+        chunkReaderBlock(offset, chunkSize, file);
+    }
+
+    function stream() {
+        const url = document.getElementById('url').value;
+
+        const options = {
+            method: 'GET',
+            headers: new Headers({
+                // "Icy-MetaData": '0'
+            })
+        };
+
+        this.request = fetch(url, options).then(function (response) {
+            const reader = response.body.getReader();
+
+            const meta = parseInt(response.headers.get('icy-metaint'))
+                , name = response.headers.get('icy-name')
+                , info = response.headers.get('ice-audio-info');
+
+            console.log('icy-*', meta, name, info); // not allowed
+
+            const decoder = ((content_type) => {
+                switch (content_type) {
+                    case 'audio/aac':
+                        return new Decoders.AAC();
+                    case 'audio/mpeg':
+                        return new Decoders.MP3();
+                    default:
+                        throw 'no decoder';
+                }
+            })(response.headers.get('content-type'));
+
+            connectDecoder(decoder);
+
+            reader.read().then(function process(result) {
+                if (result.done) {
+                    decoder.end();
+                    return;
+                }
+                // may be ok since we want cb
+                decoder.write(Decoders.Buffer(result.value), null, function () {
+                    reader.read().then(process);
+                });
+            });
+        });
+
+        return false;
+    }
+
+</script>
+
+<script>
+    function init(feeder) {
+
+        var AUDIO = feeder._backend._context;
+        var NODE  = feeder._backend._node;
+
+        // Create and configure analyzer node and storage buffer
+        var analyzer = AUDIO.createAnalyser();
+        analyzer.fftSize = 128;
+
+        var bufferLength = analyzer.frequencyBinCount;
+        var dataArray = new Uint8Array(bufferLength);
+
+        // Cache HTML elements
+        var vizArea = document.getElementById('viz');
+
+        NODE.connect(analyzer);
+
+        $segs = createSegments(bufferLength);
+        loop();
+
+        var $segs, rot = 0;
+
+        function createSegments(numSegments) {
+            var segCollection = [],
+                colorSlice = Math.floor(255 / numSegments);
+
+            for (var i = 0; i < numSegments; i++) {
+                var s = document.createElement('div');
+                s.classList.add('viz-seg');
+                var g = colorSlice * i,
+                    r = 127 - (colorSlice * i);
+
+                s.style.backgroundColor = 'rgba(' + r + ',' + g + ',255,0.1)';
+                vizArea.appendChild(s);
+                segCollection.push($(s));
+            }
+            return segCollection;
+        }
+
+
+        // Main update/render method.
+        // Gets the current frequency data and transforms the div set based on it.
+        // Used jQuery because I'm too lazy to look up my transform-prefix shiv.
+        function update() {
+            analyzer.getByteFrequencyData(dataArray);
+
+            for (var i = 0; i < bufferLength; i++) {
+                // Scaled based on frequency, staggered rotation
+                var segScale = dataArray[i] / 255,
+                    segRotate = rot + (i * 3);
+
+                $segs[i].css('transform', 'scale(' + (segScale) + ') rotate(' + segRotate + 'deg)');
+            }
+            if (++rot > 360) rot = 0;
+        }
+
+        // Main loop
+        function loop() {
+            requestAnimationFrame(loop);
+            // vid.play();
+            update();
+        }
+    }
+</script>
+</body>
+</html>
