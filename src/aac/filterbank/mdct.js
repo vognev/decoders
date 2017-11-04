@@ -27,60 +27,58 @@ module.exports = class MDCT {
 
         this.fft = new FFT(this.N4);
 
-        this.buf = (new Array(this.N4)).fill().map(() => {
-            return (new Array(2)).fill(0.0);
-        });
-
-        this.tmp = (new Array(2)).fill(0.0);
+        // private final float[][] buf = new float[N4][2];
+        this.buf = (new Float32Array(this.N4 * 2));
     }
 
     process(inp, inOff, out, outOff) {
+        // if (this.processed) throw 'processed'; this.processed = true;
+        let k, tmp0, tmp1;
 
-        let k;
+        const N2 = this.N2, N4 = this.N4, N8 = this.N8, buf = this.buf, sincos = this.sincos;
 
         //pre-IFFT complex multiplication
-        for (k = 0; k < this.N4; k++) {
-            this.buf[k][1] = (inp[inOff + 2 * k] * this.sincos[k][0]) + (inp[inOff + this.N2 - 1 - 2 * k] * this.sincos[k][1]);
-            this.buf[k][0] = (inp[inOff + this.N2 - 1 - 2 * k] * this.sincos[k][0]) - (inp[inOff + 2 * k] * this.sincos[k][1]);
+        for (k = 0; k < N4; k++) {
+            buf[2 * k + 1] = (inp[inOff + 2 * k] * sincos[k][0]) + (inp[inOff + N2 - 1 - 2 * k] * sincos[k][1]);
+            buf[2 * k + 0] = (inp[inOff + N2 - 1 - 2 * k] * sincos[k][0]) - (inp[inOff + 2 * k] * sincos[k][1]);
         }
 
         //complex IFFT, non-scaling
-        this.fft.process(this.buf, false);
+        this.fft.process(buf, false);
 
         //post-IFFT complex multiplication
-        for(k = 0; k < this.N4; k++) {
-            this.tmp[0] = this.buf[k][0];
-            this.tmp[1] = this.buf[k][1];
-            this.buf[k][1] = (this.tmp[1]*this.sincos[k][0])+(this.tmp[0]*this.sincos[k][1]);
-            this.buf[k][0] = (this.tmp[0]*this.sincos[k][0])-(this.tmp[1]*this.sincos[k][1]);
+        for (k = 0; k < N4; k++) {
+            tmp0 = buf[2 * k + 0];
+            tmp1 = buf[2 * k + 1];
+            buf[2 * k + 1] = (tmp1 * sincos[k][0]) + (tmp0 * sincos[k][1]);
+            buf[2 * k + 0] = (tmp0 * sincos[k][0]) - (tmp1 * sincos[k][1]);
         }
 
         //reordering
-        for(k = 0; k < this.N8; k += 2) {
-            out[outOff+2*k] = this.buf[this.N8+k][1];
-            out[outOff+2+2*k] = this.buf[this.N8+1+k][1];
+        for (k = 0; k < N8; k += 2) {
+            out[outOff + 2 * k] = buf[2 * (N8 + k) + 1];
+            out[outOff + 2 + 2 * k] = buf[2 * (N8 + 1 + k) + 1];
 
-            out[outOff+1+2*k] = -this.buf[this.N8-1-k][0];
-            out[outOff+3+2*k] = -this.buf[this.N8-2-k][0];
+            out[outOff + 1 + 2 * k] = -buf[2 * (N8 - 1 - k) + 0];
+            out[outOff + 3 + 2 * k] = -buf[2 * (N8 - 2 - k) + 0];
 
-            out[outOff+this.N4+2*k] = this.buf[k][0];
-            out[outOff+this.N4+2+2*k] = this.buf[1+k][0];
+            out[outOff + N4 + 2 * k] = buf[2 * k + 0];
+            out[outOff + N4 + 2 + 2 * k] = buf[2 * (1 + k)+0];
 
-            out[outOff+this.N4+1+2*k] = -this.buf[this.N4-1-k][1];
-            out[outOff+this.N4+3+2*k] = -this.buf[this.N4-2-k][1];
+            out[outOff + N4 + 1 + 2 * k] = -buf[2 * (N4 - 1 - k) + 1];
+            out[outOff + N4 + 3 + 2 * k] = -buf[2 * (N4 - 2 - k) + 1];
 
-            out[outOff+this.N2+2*k] = this.buf[this.N8+k][0];
-            out[outOff+this.N2+2+2*k] = this.buf[this.N8+1+k][0];
+            out[outOff + N2 + 2 * k] = buf[2 * (N8 + k) + 0];
+            out[outOff + N2 + 2 + 2 * k] = buf[2 * (N8 + 1 + k) + 0];
 
-            out[outOff+this.N2+1+2*k] = -this.buf[this.N8-1-k][1];
-            out[outOff+this.N2+3+2*k] = -this.buf[this.N8-2-k][1];
+            out[outOff + N2 + 1 + 2 * k] = -buf[2 * (N8 - 1 - k) + 1];
+            out[outOff + N2 + 3 + 2 * k] = -buf[2 * (N8 - 2 - k) + 1];
 
-            out[outOff+this.N2+this.N4+2*k] = -this.buf[k][1];
-            out[outOff+this.N2+this.N4+2+2*k] = -this.buf[1+k][1];
+            out[outOff + N2 + N4 + 2 * k] = -buf[2 * k + 1];
+            out[outOff + N2 + N4 + 2 + 2 * k] = -buf[2 * (1 + k) + 1];
 
-            out[outOff+this.N2+this.N4+1+2*k] = this.buf[this.N4-1-k][0];
-            out[outOff+this.N2+this.N4+3+2*k] = this.buf[this.N4-2-k][0];
+            out[outOff + N2 + N4 + 1 + 2 * k] = buf[2 * (N4 - 1 - k) + 0];
+            out[outOff + N2 + N4 + 3 + 2 * k] = buf[2 * (N4 - 2 - k) + 0];
         }
     }
 };
-

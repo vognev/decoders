@@ -18,13 +18,17 @@ module.exports = class ICStream
 
         this.info = new ICSInfo(frame);
 
-        this.sfbCB = new Array(Constants.MAX_SECTIONS);
+        // private final int[] sfbCB;
+        this.sfbCB = new Int32Array(Constants.MAX_SECTIONS);
 
-        this.sectEnd = new Array(Constants.MAX_SECTIONS);
+        // private final int[] sectEnd;
+        this.sectEnd = new Int32Array(Constants.MAX_SECTIONS);
 
-        this.data = new Array(frame.frameLength);
+        // private final float[] data;
+        this.data = new Float32Array(frame.frameLength);
 
-        this.scaleFactors = new Array(Constants.MAX_SECTIONS);
+        // private final float[] scaleFactors;
+        this.scaleFactors = new Float32Array(Constants.MAX_SECTIONS);
 
         this.globalGain = null;
         this.pulseDataPresent = null;
@@ -179,7 +183,8 @@ module.exports = class ICStream
 
         const offsets = this.info.getSWBOffsets();
 
-        const buf = new Array(4);
+        // final int[] buf = new int[4];
+        const buf = new Int32Array(4);
 
         let sfb, j, k, w, hcb, off, width, num;
 

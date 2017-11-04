@@ -26,7 +26,8 @@ module.exports = class ICSInfo
 
         this._windowSequence = ONLY_LONG_SEQUENCE;
 
-        this.windowGroupLength = (new Array(MAX_WINDOW_GROUP_COUNT))
+        // private int[] windowGroupLength;
+        this.windowGroupLength = (new Int32Array(MAX_WINDOW_GROUP_COUNT))
             .fill(0);
 
         this.maxSFB                 = 0;

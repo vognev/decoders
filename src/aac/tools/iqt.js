@@ -5,7 +5,7 @@ module.exports = class IQT
     }
 };
 
-const IQ_TABLE = [
+const IQ_TABLE = new Float32Array([
     0.0,
     1.0,
     2.519842099789746,
@@ -8197,4 +8197,4 @@ const IQ_TABLE = [
     165032.86733929766,
     165059.7418265946,
     165086.61740784015
-];
+]);

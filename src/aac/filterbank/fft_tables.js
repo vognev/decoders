@@ -18,22 +18,19 @@ class FFTTables {
     static generateShortTable(len) {
         let t = 2 * Math.PI / len,
             cosT = Math.cos(t),
-            sinT = Math.sin(t),
-            f = new Array(len);
+            sinT = Math.sin(t);
 
-        for (let i = 0; i < len; i++) {
-            f[i] = new Array(2);
-        }
+        const f = new Float32Array(len * 2);
 
-        f[0][0] = 1;
-        f[0][1] = 0;
+        f[2 * 0 + 0] = 1;
+        f[2 * 0 + 1] = 0;
 
         let lastImag = 0;
 
         for (let i = 1; i < len; i++) {
-            f[i][0] = f[i - 1][0] * cosT + lastImag * sinT;
-            lastImag = lastImag * cosT - f[i - 1][0] * sinT;
-            f[i][1] = -lastImag;
+            f[2 * i + 0] = f[2 * (i - 1) + 0] * cosT + lastImag * sinT;
+            lastImag = lastImag * cosT - f[2 * (i - 1) + 0] * sinT;
+            f[2 * i + 1] = -lastImag;
         }
 
         return f;
@@ -42,22 +39,18 @@ class FFTTables {
     static generateLongTable(len) {
         let t = 2 * Math.PI / len,
             cosT = Math.cos(t),
-            sinT = Math.sin(t),
-            f = new Array(len);
+            sinT = Math.sin(t);
 
-        for (let i = 0; i < len; i++) {
-            //f[i] = new Float32Array(3);
-            f[i] = new Array(3);
-        }
+        const f = new Float32Array(len * 3);
 
-        f[0][0] = 1;
-        f[0][1] = 0;
-        f[0][2] = 0;
+        f[3 * 0 + 0] = 1;
+        f[3 * 0 + 1] = 0;
+        f[3 * 0 + 2] = 0;
 
         for (let i = 1; i < len; i++) {
-            f[i][0] = f[i - 1][0] * cosT + f[i - 1][2] * sinT;
-            f[i][2] = f[i - 1][2] * cosT - f[i - 1][0] * sinT;
-            f[i][1] = -f[i][2];
+            f[3 * i + 0] = f[3 * (i - 1) + 0] * cosT + f[3 * (i - 1) + 2] * sinT;
+            f[3 * i + 2] = f[3 * (i - 1) + 2] * cosT - f[3 * (i - 1) + 0] * sinT;
+            f[3 * i + 1] = -f[3 * i + 2];
         }
 
         return f;

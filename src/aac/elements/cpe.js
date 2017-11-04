@@ -14,7 +14,8 @@ module.exports = class CPE extends Element
 
         this.msMask = null;
 
-        this.msUsed = new Array(Constants.MAX_MS_MASK);
+        // private boolean[] msUsed;
+        this.msUsed = new Uint8Array(Constants.MAX_MS_MASK);
 
         this.commonWindow = null;
 
@@ -41,21 +42,21 @@ module.exports = class CPE extends Element
                 const windowGroupCount  = info.getWindowGroupCount();
 
                 for (let idx = 0; idx < windowGroupCount*maxSFB; idx++) {
-                    this.msUsed[idx] = !!bitStream.readBit();
+                    this.msUsed[idx] = bitStream.readBit();
                 }
             }
             else if (MSMask.TYPE_ALL_1 === this.msMask) {
-                this.msUsed.fill(true);
+                this.msUsed.fill(1);
             }
             else if (MSMask.TYPE_ALL_0 === this.msMask) {
-                this.msUsed.fill(false);
+                this.msUsed.fill(0);
             }
             else {
                 throw "reserved MS mask type used";
             }
         } else {
             this.msMask = MSMask.TYPE_ALL_0;
-            this.msUsed.fill(false);
+            this.msUsed.fill(0);
         }
 
         if (this.frame.isErrorResilientProfile()) {
@@ -87,6 +88,6 @@ module.exports = class CPE extends Element
     }
 
     isMSUsed(off) {
-        return this.msUsed[off];
+        return !!this.msUsed[off];
     }
 };

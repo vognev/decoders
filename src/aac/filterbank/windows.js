@@ -1,6 +1,6 @@
 class Windows {
     static generateSineWindow(len) {
-        const d = new Array(len);
+        const d = new Float32Array(len);
         for (let i = 0; i < len; i++) {
             d[i] = Math.sin((i + 0.5) * (Math.PI / (2.0 * len)))
         }
@@ -9,8 +9,8 @@ class Windows {
 
     static generateKBDWindow(alpha, len) {
         const PIN   = Math.PI / len,
-            out     = new Array(len),
-            f       = new Array(len),
+            out     = new Float32Array(len),
+            f       = new Float32Array(len),
             alpha2  = (alpha * PIN) * (alpha * PIN);
 
         let sum = 0;
