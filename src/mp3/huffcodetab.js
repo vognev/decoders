@@ -27,7 +27,9 @@ class Huffman {
         if (ht != null)
             return ht;
 
+        // public static huffcodetab[]  ht = null;
         ht = new Array(HTN);
+
         ht[ 0] = huffcodetab("0  ",0,0,0,0,-1,null,null,ValTab0,0);
         ht[ 1] = huffcodetab("1  ",2,2,0,0,-1,null,null,ValTab1,7);
         ht[ 2] = huffcodetab("2  ",3,3,0,0,-1,null,null,ValTab2,17);

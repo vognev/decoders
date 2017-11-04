@@ -14,7 +14,8 @@ const BUFSIZE_MASK = BUFSIZE - 1;
 module.exports = class BitReserve {
     constructor() {
         this.offset = this.totbit = this.buf_byte_idx = 0;
-        this.buf = (new Array(BUFSIZE)).fill(0)
+        // private final int[] 			buf = new int[BUFSIZE];
+        this.buf = (new Int32Array(BUFSIZE)).fill(0)
     }
 
     hputbuf(val) {

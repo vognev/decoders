@@ -49,24 +49,29 @@ class SampleBuffer {
 
 class SynthesisFilter {
     constructor(channelnumber, factor, eq0 = null) {
-        this._tmpOut = new Array(32);
+        // private float[] _tmpOut = new float[32];
+        this._tmpOut = new Float32Array(32);
 
         this.actual_v = null;
         this.actual_write_pos = 0;
 
-        this.v1 = (new Array(512)).fill(0);
-        this.v2 = (new Array(512)).fill(0);
-        this.samples = (new Array(32)).fill(0);
+        // private float[] v1 = new float[512];
+        this.v1 = (new Float32Array(512)).fill(0);
+        // private float[] v2 = new float[512];
+        this.v2 = (new Float32Array(512)).fill(0);
 
-        this.channel = channelnumber;
-        this.scalefactor = factor;
+        // private float[] samples = new float[32]
+        this.samples = (new Float32Array(32)).fill(0);
+
+        this.channel        = channelnumber;
+        this.scalefactor    = factor;
 
         this.setEQ(eq0);
         this.reset();
     }
 
     setEQ(eq) {
-        this.eq = eq || (new Array(32)).fill(1);
+        this.eq = eq || (new Float32Array(32)).fill(1);
     }
 
     reset() {

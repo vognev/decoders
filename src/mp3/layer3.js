@@ -15,35 +15,50 @@ module.exports = class Layer3 {
         this.v = [0];
         this.w = [0];
 
-        this.is_pos = (new Array(576)).fill(0);
-        this.is_ratio = (new Array(576)).fill(0);
+        // int[] is_pos = new int[576];
+        this.is_pos = (new Int32Array(576)).fill(0);
+        // float[] is_ratio = new float[576];
+        this.is_ratio = (new Float32Array(576)).fill(0);
 
-        this.samples1 = (new Array(32)).fill(0);
-        this.samples2 = (new Array(32)).fill(0);
+        // private float[] samples1 = new float[32];
+        this.samples1 = (new Float32Array(32)).fill(0);
+        // private float[] samples2 = new float[32];
+        this.samples2 = (new Float32Array(32)).fill(0);
 
-        this.tsOutCopy = (new Array(18)).fill(0);
-        this.rawout = (new Array(36)).fill(0.0);
+        // float[] tsOutCopy = new float[18];
+        this.tsOutCopy = (new Float32Array(18)).fill(0);
+        // float[] rawout = new float[36];
+        this.rawout = (new Float32Array(36)).fill(0.0);
 
         huffcodetab.inithuff();
-        this.is_1d = new Array(SBLIMIT * SSLIMIT + 4).fill(0);
+
+        // private int[] is_1d;
+        this.is_1d = new Int32Array(SBLIMIT * SSLIMIT + 4).fill(0);
+
+        // private float[][][] ro;
         this.ro = (new Array(2)).fill().map(() => {
             return (new Array(SBLIMIT)).fill().map(() => {
-                return (new Array(SSLIMIT)).fill(0)
+                return (new Float32Array(SSLIMIT)).fill(0)
             })
         });
+
+        // private float[][][] lr;
         this.lr = (new Array(2)).fill().map(() => {
             return (new Array(SBLIMIT)).fill().map(() => {
-                return (new Array(SSLIMIT)).fill(0)
+                return (new Float32Array(SSLIMIT)).fill(0)
             })
         });
-        this.out_1d = (new Array(SBLIMIT * SSLIMIT)).fill(0);
+        // private float[] out_1d;
+        this.out_1d = (new Float32Array(SBLIMIT * SSLIMIT)).fill(0);
+        // private float[][] prevblck;
         this.prevblck = (new Array(2)).fill().map(() => {
-            return (new Array(SBLIMIT * SSLIMIT)).fill(0)
+            return (new Float32Array(SBLIMIT * SSLIMIT)).fill(0)
         });
-        this.k = (new Array(2)).fill().map(() => {
+        /*this.k = (new Array(2)).fill().map(() => {
             return (new Array(SBLIMIT * SSLIMIT)).fill(0)
-        });
-        this.nonzero = (new Array(2)).fill(576);
+        });*/
+        // private int[] nonzero;
+        this.nonzero = (new Int32Array(2)).fill(576);
 
         this.scalefac = [new temporaire2(), new temporaire2()];
 
@@ -83,6 +98,7 @@ module.exports = class Layer3 {
         this.sfBandIndex[8] = new SBI(l8, s8);
         // END OF L3TABLE INIT
 
+        // private static /*final*/ int reorder_table[][]
         if (null === reorder_table) {
             reorder_table = new Array(9);
             for (let i = 0; i < 9; i++)
@@ -478,7 +494,6 @@ module.exports = class Layer3 {
                 xr_1d[quotien][reste] = 0.0;
             else {
                 let abv = this.is_1d[j];
-                // Pow Array fix (11/17/04)
                 if (abv < t_43.length) {
                     if (this.is_1d[j] > 0)
                         xr_1d[quotien][reste] = g_gain * t_43[abv];
@@ -1116,7 +1131,7 @@ module.exports = class Layer3 {
 
 function reorder(scalefac_band) {
     let j = 0;
-    const ix = new Array(576); //int[576];
+    const ix = new Int32Array(576); //int[576];
     for (let sfb = 0; sfb < 13; sfb++) {
         const start = scalefac_band[sfb];
         const end = scalefac_band[sfb + 1];
@@ -1141,14 +1156,17 @@ class gr_info_s {
         this.preflag = 0;
         this.scalefac_scale = 0;
         this.count1table_select = 0;
-        this.table_select = (new Array(3)).fill(0);
-        this.subblock_gain = (new Array(3)).fill(0);
+        // public int[] table_select;
+        this.table_select = (new Int32Array(3)).fill(0);
+        // public int[] subblock_gain;
+        this.subblock_gain = (new Int32Array(3)).fill(0);
     }
 }
 
 class temporaire {
     constructor() {
-        this.scfsi = (new Array(4)).fill(0);
+        // public int[] scfsi;
+        this.scfsi = (new Int32Array(4)).fill(0);
         this.gr = [new gr_info_s(), new gr_info_s()];
     }
 }
@@ -1163,17 +1181,21 @@ class III_side_info_t {
 
 class temporaire2 {
     constructor() {
-        this.l = (new Array(23)).fill(0);
+        // public int[] l;
+        this.l = (new Int32Array(23)).fill(0);
+        // public int[][] s;
         this.s = (new Array(3)).fill().map(() => {
-            return (new Array(13)).fill(0);
+            return (new Int32Array(13)).fill(0);
         })
     }
 }
 
 class SBI {
     constructor(thel = null, thes = null) {
-        this.l = thel || (new Array(23)).fill(0);
-        this.s = thes || (new Array(14)).fill(0);
+        // public int[] l;
+        this.l = thel || (new Int32Array(23)).fill(0);
+        // public int[] s;
+        this.s = thes || (new Int32Array(14)).fill(0);
     }
 }
 
@@ -1181,6 +1203,7 @@ const d43 = (4 / 3);
 const SSLIMIT = 18;
 const SBLIMIT = 32;
 
+// private static /*final*/ int reorder_table[][]
 let reorder_table = null;
 
 const slen = [
@@ -1189,7 +1212,8 @@ const slen = [
 ];
 
 const t_43 = (() => {
-    const t43 = (new Array(8192)).fill(0.0);
+    // float[] t43 = new float[8192];
+    const t43 = (new Float32Array(8192)).fill(0.0);
     const d43 = 4.0 / 3.0;
 
     for (let i = 0; i < 8192; i++) {
