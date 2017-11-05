@@ -1,12 +1,10 @@
-
 <!doctype html>
 <html>
 <head>
     <title></title>
     <script src="./browser.js"></script>
-    <script src="./AudioFeeder.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="./jquery-1.12.4.min.js"></script>
     <style>
         #controls {
             color: black;
@@ -103,34 +101,241 @@
 </div>
 
 <script>
-    var feeder = new AudioFeeder({});
+    // https://github.com/phoboslab/jsmpeg
+    var WebAudioOut = function(options) {
+        this.context = WebAudioOut.CachedContext =
+            WebAudioOut.CachedContext ||
+            new (window.AudioContext || window.webkitAudioContext)();
+
+        this.gain = this.context.createGain();
+        this.destination = this.gain;
+
+        // Keep track of the number of connections to this AudioContext, so we
+        // can safely close() it when we're the only one connected to it.
+        this.gain.connect(this.context.destination);
+        this.context._connections = (this.context._connections || 0) + 1;
+
+        this.startTime = 0;
+        this.buffer = null;
+        this.wallclockStartTime = 0;
+        this.volume = 1;
+        this.enabled = true;
+
+        this.unlocked = !WebAudioOut.NeedsUnlocking();
+
+        Object.defineProperty(this, 'enqueuedTime', {get: this.getEnqueuedTime});
+    };
+
+    WebAudioOut.now = function() {
+        return window.performance
+            ? window.performance.now() / 1000
+            : Date.now() / 1000;
+    };
+
+    WebAudioOut.prototype.destroy = function() {
+        this.gain.disconnect();
+        this.context._connections--;
+
+        if (this.context._connections === 0) {
+            this.context.close();
+            WebAudioOut.CachedContext = null;
+        }
+    };
+
+    WebAudioOut.prototype.play = function(sampleRate, channels, length, data) {
+        if (!this.enabled) {
+            return;
+        }
+
+        // If the context is not unlocked yet, we simply advance the start time
+        // to "fake" actually playing audio. This will keep the video in sync.
+        if (!this.unlocked) {
+            var ts = WebAudioOut.now()
+            if (this.wallclockStartTime < ts) {
+                this.wallclockStartTime = ts;
+            }
+            this.wallclockStartTime += left.length / sampleRate;
+            return;
+        }
+
+
+        this.gain.gain.value = this.volume;
+
+        var buffer = this.context.createBuffer(channels, length, sampleRate);
+        for (var i = 0; i < channels; i++)
+            buffer.getChannelData(i).set(data[i]);
+
+        var source = this.context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(this.destination);
+
+        var now = this.context.currentTime;
+        var duration = buffer.duration;
+        if (this.startTime < now) {
+            this.startTime = now;
+            this.wallclockStartTime = WebAudioOut.now();
+        }
+
+        source.start(this.startTime);
+        this.startTime += duration;
+        this.wallclockStartTime += duration;
+    };
+
+    WebAudioOut.prototype.stop = function() {
+        // Meh; there seems to be no simple way to get a list of currently
+        // active source nodes from the Audio Context, and maintaining this
+        // list ourselfs would be a pain, so we just set the gain to 0
+        // to cut off all enqueued audio instantly.
+        this.gain.gain.value = 0;
+    };
+
+    WebAudioOut.prototype.getEnqueuedTime = function() {
+        // The AudioContext.currentTime is only updated every so often, so if we
+        // want to get exact timing, we need to rely on the system time.
+        return Math.max(this.wallclockStartTime - WebAudioOut.now(), 0)
+    };
+
+    WebAudioOut.prototype.resetEnqueuedTime = function() {
+        this.startTime = this.context.currentTime;
+        this.wallclockStartTime = WebAudioOut.now();
+    };
+
+    WebAudioOut.prototype.unlock = function(callback) {
+        if (this.unlocked) {
+            if (callback) {
+                callback();
+            }
+            return;
+        }
+
+        this.unlockCallback = callback;
+
+        // Create empty buffer and play it
+        var buffer = this.context.createBuffer(1, 1, 22050);
+        var source = this.context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(this.destination);
+        source.start(0);
+
+        setTimeout(this.checkIfUnlocked.bind(this, source, 0), 0);
+    };
+
+    WebAudioOut.prototype.checkIfUnlocked = function(source, attempt) {
+        if (
+            source.playbackState === source.PLAYING_STATE ||
+            source.playbackState === source.FINISHED_STATE
+        ) {
+            this.unlocked = true;
+            if (this.unlockCallback) {
+                this.unlockCallback();
+                this.unlockCallback = null;
+            }
+        }
+        else if (attempt < 10) {
+            // Jeez, what a shit show. Thanks iOS!
+            setTimeout(this.checkIfUnlocked.bind(this, source, attempt+1), 100);
+        }
+    };
+
+    WebAudioOut.NeedsUnlocking = function() {
+        return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    };
+
+    WebAudioOut.IsSupported = function() {
+        return (window.AudioContext || window.webkitAudioContext);
+    };
+
+    WebAudioOut.CachedContext = null;
+</script>
+
+<script>
+    function initVisualization(output) {
+        var AUDIO = output.context;
+        var NODE  = output.destination;
+
+        // Create and configure analyzer node and storage buffer
+        var analyzer = AUDIO.createAnalyser();
+        analyzer.fftSize = 128;
+
+        var bufferLength = analyzer.frequencyBinCount;
+        var dataArray = new Uint8Array(bufferLength);
+
+        // Cache HTML elements
+        var vizArea = document.getElementById('viz');
+
+        NODE.connect(analyzer);
+
+        $segs = createSegments(bufferLength);
+        loop();
+
+        var $segs, rot = 0;
+
+        function createSegments(numSegments) {
+            var segCollection = [],
+                colorSlice = Math.floor(255 / numSegments);
+
+            for (var i = 0; i < numSegments; i++) {
+                var s = document.createElement('div');
+                s.classList.add('viz-seg');
+                var g = colorSlice * i,
+                    r = 127 - (colorSlice * i);
+
+                s.style.backgroundColor = 'rgba(' + r + ',' + g + ',255,0.1)';
+                vizArea.appendChild(s);
+                segCollection.push($(s));
+            }
+            return segCollection;
+        }
+
+        function update() {
+            analyzer.getByteFrequencyData(dataArray);
+
+            for (var i = 0; i < bufferLength; i++) {
+                // Scaled based on frequency, staggered rotation
+                var segScale = dataArray[i] / 255,
+                    segRotate = rot + (i * 3);
+
+                $segs[i].css('transform', 'scale(' + (segScale) + ') rotate(' + segRotate + 'deg)');
+            }
+            if (++rot > 360) rot = 0;
+        }
+
+        // Main loop
+        function loop() {
+            requestAnimationFrame(loop);
+            update();
+        }
+    }
+</script>
+
+<script>
+    var output = new WebAudioOut();
+    initVisualization(output);
 
     function connectDecoder(decoder) {
         decoder.on('header', function (header) {
-            var freq = header.sampleRate;
-            var chnl = header.channels;
-
-            feeder.init(chnl, freq);
-            feeder.start();
-            initVisualization(feeder);
+            var frequency = header.sampleRate;
+            var channels = header.channels;
+            var blockAlign = header.blockAlign;
 
             console.time('decoding');
 
             decoder.on('data', function (data) {
-                var them = [];
-                var sz = 2;
-                var each_len = data.length / chnl / sz; // assuming 16-bit samples
+                var individual = [], sz = blockAlign / channels;
+                console.assert(sz === 2);
 
-                for (var i = 0; i < chnl; i++) {
-                    them[i] = new Float32Array(each_len);
-                    for (var k = 0; k < each_len; k++) {
-                        them[i][k] = data.readInt16LE(
-                            k * chnl * sz + i * sz
+                var channelSamples = data.length / channels / sz;
+
+                for (var i = 0; i < channels; i++) {
+                    individual[i] = new Float32Array(channelSamples);
+                    for (var k = 0; k < channelSamples; k++) {
+                        individual[i][k] = data['readInt16LE'](
+                            k * channels * sz + i * sz
                         ) / 0xFFFF;
                     }
                 }
 
-                feeder.bufferData(them);
+                output.play(frequency, channels, channelSamples, individual);
             });
 
             decoder.on('finish', function() {
@@ -225,68 +430,7 @@
 
         return false;
     }
-
 </script>
 
-<script>
-    function initVisualization(feeder) {
-
-        var AUDIO = feeder._backend._context;
-        var NODE  = feeder._backend._node;
-
-        // Create and configure analyzer node and storage buffer
-        var analyzer = AUDIO.createAnalyser();
-        analyzer.fftSize = 128;
-
-        var bufferLength = analyzer.frequencyBinCount;
-        var dataArray = new Uint8Array(bufferLength);
-
-        // Cache HTML elements
-        var vizArea = document.getElementById('viz');
-
-        NODE.connect(analyzer);
-
-        $segs = createSegments(bufferLength);
-        loop();
-
-        var $segs, rot = 0;
-
-        function createSegments(numSegments) {
-            var segCollection = [],
-                colorSlice = Math.floor(255 / numSegments);
-
-            for (var i = 0; i < numSegments; i++) {
-                var s = document.createElement('div');
-                s.classList.add('viz-seg');
-                var g = colorSlice * i,
-                    r = 127 - (colorSlice * i);
-
-                s.style.backgroundColor = 'rgba(' + r + ',' + g + ',255,0.1)';
-                vizArea.appendChild(s);
-                segCollection.push($(s));
-            }
-            return segCollection;
-        }
-
-        function update() {
-            analyzer.getByteFrequencyData(dataArray);
-
-            for (var i = 0; i < bufferLength; i++) {
-                // Scaled based on frequency, staggered rotation
-                var segScale = dataArray[i] / 255,
-                    segRotate = rot + (i * 3);
-
-                $segs[i].css('transform', 'scale(' + (segScale) + ') rotate(' + segRotate + 'deg)');
-            }
-            if (++rot > 360) rot = 0;
-        }
-
-        // Main loop
-        function loop() {
-            requestAnimationFrame(loop);
-            update();
-        }
-    }
-</script>
 </body>
 </html>

@@ -58,7 +58,9 @@
               "targets": {
                 "chrome": "58",
                 "firefox": "52",
-                "safari": "10"
+                "safari": "10",
+                "edge": "15",
+                "ios": "9"
               }
             }
           ]
