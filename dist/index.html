@@ -103,27 +103,27 @@
 </div>
 
 <script>
-    const feeder = new AudioFeeder({});
+    var feeder = new AudioFeeder({});
 
     function connectDecoder(decoder) {
         decoder.on('header', function (header) {
-            const freq = header.sampleRate;
-            const chnl = header.channels;
+            var freq = header.sampleRate;
+            var chnl = header.channels;
 
             feeder.init(chnl, freq);
             feeder.start();
-            init(feeder);
+            initVisualization(feeder);
 
             console.time('decoding');
 
             decoder.on('data', function (data) {
-                const them = [];
-                const sz = 2;
-                const each_len = data.length / chnl / sz; // assuming 16-bit samples
+                var them = [];
+                var sz = 2;
+                var each_len = data.length / chnl / sz; // assuming 16-bit samples
 
-                for (let i = 0; i < chnl; i++) {
+                for (var i = 0; i < chnl; i++) {
                     them[i] = new Float32Array(each_len);
-                    for (let k = 0; k < each_len; k++) {
+                    for (var k = 0; k < each_len; k++) {
                         them[i][k] = data.readInt16LE(
                             k * chnl * sz + i * sz
                         ) / 0xFFFF;
@@ -140,12 +140,12 @@
     }
 
     function file(e) {
-        const file = e.target.files[0];
-        const decoder = Decoders.factory(file.name.split('.')[1]);
+        var file = e.target.files[0];
+        var decoder = Decoders.factory(file.name.split('.')[1]);
         connectDecoder(decoder);
 
         chunked(file, 65536, function (chunk, done, cb) {
-            const buf = Decoders.Buffer(chunk);
+            var buf = Decoders.Buffer(chunk);
             decoder.write(buf, null, cb);
             if (done)
                 decoder.end();
@@ -153,11 +153,11 @@
     }
 
     function chunked(file, chunkSize, callback) {
-        let fileSize = file.size;
-        let offset = 0;
-        let chunkReaderBlock = null;
+        var fileSize = file.size;
+        var offset = 0;
+        var chunkReaderBlock = null;
 
-        let readEventHandler = function (evt) {
+        var readEventHandler = function (evt) {
             if (evt.target.error == null) {
                 offset += evt.target.result.byteLength;
                 callback(evt.target.result, offset >= fileSize, function () {
@@ -170,8 +170,8 @@
         };
 
         chunkReaderBlock = function (_offset, length, _file) {
-            let r = new FileReader();
-            let blob = _file.slice(_offset, length + _offset);
+            var r = new FileReader();
+            var blob = _file.slice(_offset, length + _offset);
             r.onload = readEventHandler;
             r.readAsArrayBuffer(blob);
         };
@@ -180,9 +180,9 @@
     }
 
     function stream() {
-        const url = document.getElementById('url').value;
+        var url = document.getElementById('url').value;
 
-        const options = {
+        var options = {
             method: 'GET',
             headers: new Headers({
                 // "Icy-MetaData": '0'
@@ -190,15 +190,15 @@
         };
 
         this.request = fetch(url, options).then(function (response) {
-            const reader = response.body.getReader();
+            var reader = response.body.getReader();
 
-            const meta = parseInt(response.headers.get('icy-metaint'))
+            var meta = parseInt(response.headers.get('icy-metaint'))
                 , name = response.headers.get('icy-name')
                 , info = response.headers.get('ice-audio-info');
 
-            console.log('icy-*', meta, name, info); // not allowed
+            console.log('icy-*', meta, name, info);
 
-            const decoder = ((content_type) => {
+            var decoder = (function (content_type) {
                 switch (content_type) {
                     case 'audio/aac':
                         return new Decoders.AAC();
@@ -216,7 +216,7 @@
                     decoder.end();
                     return;
                 }
-                // may be ok since we want cb
+
                 decoder.write(Decoders.Buffer(result.value), null, function () {
                     reader.read().then(process);
                 });
@@ -229,7 +229,7 @@
 </script>
 
 <script>
-    function init(feeder) {
+    function initVisualization(feeder) {
 
         var AUDIO = feeder._backend._context;
         var NODE  = feeder._backend._node;
@@ -268,10 +268,6 @@
             return segCollection;
         }
 
-
-        // Main update/render method.
-        // Gets the current frequency data and transforms the div set based on it.
-        // Used jQuery because I'm too lazy to look up my transform-prefix shiv.
         function update() {
             analyzer.getByteFrequencyData(dataArray);
 
@@ -288,7 +284,6 @@
         // Main loop
         function loop() {
             requestAnimationFrame(loop);
-            // vid.play();
             update();
         }
     }
