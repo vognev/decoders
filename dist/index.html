@@ -309,6 +309,12 @@
 </script>
 
 <script>
+
+    if (!('AudioContext' in window)) {
+        alert('no AudioContext support in this browser');
+        throw 'no AudioContext support in this browser';
+    }
+
     var output = new WebAudioOut();
     initVisualization(output);
 
@@ -387,6 +393,72 @@
     function stream() {
         var url = document.getElementById('url').value;
 
+        while(true) {
+            if (('fetch' in window) && ('ReadableStream' in window)) {
+                console.log('using fetchStream');
+                fetchStream(url);
+                break;
+            }
+
+            if ('XMLHttpRequest' in window) {
+                const xhr = new XMLHttpRequest();
+
+                try {
+                    xhr.responseType     = 'moz-chunked-arraybuffer';
+                    if (xhr.responseType === 'moz-chunked-arraybuffer') {
+                        console.log('using fetchMozXhr');
+                        fetchMozXhr(xhr, url);
+                        break;
+                    }
+                } catch (e) {
+
+                }
+            }
+
+            // fallback
+            alert('no stream support in this browser');
+            break;
+        }
+
+        return false;
+    }
+
+    function fetchMozXhr(xhr, url) {
+        var gotHeaders = false;
+        var decoder    = null;
+
+        xhr.onprogress = function (e) {
+            if (2 === xhr.readyState || 3 === xhr.readyState) {
+                if (!gotHeaders) {
+                    decoder = (function (content_type) {
+                        switch (content_type) {
+                            case 'audio/aac':
+                                return new Decoders.AAC();
+                            case 'audio/mpeg':
+                                return new Decoders.MP3();
+                            default:
+                                throw 'no decoder';
+                        }
+                    })(xhr.getResponseHeader('content-type'));
+
+                    connectDecoder(decoder);
+                    gotHeaders = true;
+                }
+
+                xhr.response &&
+                decoder.write(Decoders.Buffer(xhr.response), null, function(){});
+            } else if (4 === xhr.readyState) {
+                console.log('finished');
+            }
+        };
+
+        xhr.open("get", url, true);
+        xhr.responseType = 'moz-chunked-arraybuffer';
+        xhr.send();
+    }
+
+    function fetchStream(url) {
+
         var options = {
             method: 'GET',
             headers: new Headers({
@@ -394,7 +466,7 @@
             })
         };
 
-        this.request = fetch(url, options).then(function (response) {
+        return fetch(url, options).then(function (response) {
             var reader = response.body.getReader();
 
             var meta = parseInt(response.headers.get('icy-metaint'))
@@ -427,8 +499,6 @@
                 });
             });
         });
-
-        return false;
     }
 </script>
 
