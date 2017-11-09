@@ -310,7 +310,7 @@
 
 <script>
 
-    if (!('AudioContext' in window)) {
+    if (!((window.AudioContext || window.webkitAudioContext))) {
         alert('no AudioContext support in this browser');
         throw 'no AudioContext support in this browser';
     }
